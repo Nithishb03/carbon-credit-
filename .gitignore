@@ -1,0 +1,36 @@
+# Python caches and local environments
+__pycache__/
+*.py[cod]
+.venv/
+.venv*/
+
+# Temporary scratch folders
+tmp/
+.tmp/
+
+# Node/Hardhat dependencies and generated output
+node_modules/
+carbon-blockchain/node_modules/
+carbon-blockchain/artifacts/
+carbon-blockchain/cache/
+carbon-blockchain/coverage/
+carbon-blockchain/typechain-types/
+
+# EZKL generated artifacts
+ezkl_artifacts/
+input.json
+settings.json
+circuit.json
+witness.json
+proof.json
+Verifier.sol
+Verifier.abi
+Verifier_ABI.json
+vk.key
+pk.key
+verification_key.vk
+proving_key.pk
+*.srs
+
+# Local logs
+*.log
