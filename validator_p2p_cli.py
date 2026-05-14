@@ -8,7 +8,7 @@ from web3 import Web3
 
 w3 = Web3(Web3.HTTPProvider('http://127.0.0.1:8545'))
 # 🚨 PASTE YOUR EXACT CURRENT CONTRACT ADDRESS HERE:
-STAKING_CONTRACT_ADDRESS = w3.to_checksum_address("0xa513E6E4b8f2a923D98304ec87F64353C4D5C853")
+STAKING_CONTRACT_ADDRESS = w3.to_checksum_address("0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512")
 
 # Add this right below STAKING_CONTRACT_ADDRESS = ...
 if w3.eth.get_code(STAKING_CONTRACT_ADDRESS) == b'':
@@ -31,36 +31,48 @@ ort_session = ort.InferenceSession("carbon_validator.onnx")
 input_name = ort_session.get_inputs()[0].name
 
 def run_local_model_inference(records):
-    """Executes normalization transforms and scores payloads locally"""
-    fraud_detected = False
+    """Executes normalization transforms and scores payloads locally with Batch Consensus"""
+    fraud_count = 0
     total_co2 = 0
+    total_rows = len(records)
     
-    print(f"\n🧠 INITIATING ML DIAGNOSTICS ON {len(records)} ROWS OF TARGET DATA...")
+    print(f"\n🧠 INITIATING ML DIAGNOSTICS ON {total_rows} ROWS OF TARGET DATA...")
     for idx, row in enumerate(records):
-        # 1. Show the user exactly what the script is reading
-        print(f"\n   [Row {idx}] Extracting Raw Telemetry: Power={row.get('power_kwh', 0)}kWh, Vib={row.get('vibration_hz', 0)}Hz, Temp={row.get('temp_c', 0)}C")
         
-        features = np.array([[
-            float(row.get('power_kwh', 0)), float(row.get('vibration_hz', 0)), 
-            float(row.get('temp_c', 0)), float(row.get('humidity_pct', 0)), 
-            float(row.get('gps_lat', 0)), float(row.get('gps_long', 0))
-        ]])
+        power = float(row.get('power_kwh', 0))
+        vib = float(row.get('vibration_hz', 0))
+        temp = float(row.get('temp_c', 0))
+        hum = float(row.get('humidity_pct', 0))
+        lat = float(row.get('gps_lat', 0))
+        lon = float(row.get('gps_long', 0))
         
-        # 2. Normalize and run ONNX inference
+        features = np.array([[power, vib, temp, hum, lat, lon]])
+        
         scaled = ((features - scaler_mean) / scaler_scale).astype(np.float32)
         outputs = ort_session.run(None, {input_name: scaled})
         logit = float(np.squeeze(outputs[0]))
         
-        # 3. Sigmoid probability transform
         probability = 1 / (1 + math.exp(-max(min(logit, 10), -10)))
-        print(f"   [Row {idx}] AI Inference Complete -> Anomaly Probability: {probability*100:.2f}%")
         
+        # Only print rows that are suspiciously high to keep the terminal clean
         if probability >= 0.5:
-            fraud_detected = True
+            print(f"   [Row {idx}] ⚠️ High Anomaly Probability: {probability*100:.2f}%")
+            fraud_count += 1
         else:
             total_co2 += 500
+    
+    # Calculate the overall fraud percentage of the batch
+    fraud_percentage = (fraud_count / total_rows) * 100
+    
+    print(f"\n📊 BATCH ANALYSIS COMPLETE:")
+    print(f"   Total Rows Processed: {total_rows}")
+    print(f"   Anomalies Detected: {fraud_count} ({fraud_percentage:.2f}% of batch)")
+    
+    # SYSTEM RULE: If more than 20% of the data is fraudulent, slash the enterprise.
+    # Otherwise, it's statistical noise, accept it as Legitimate.
+    is_valid = fraud_percentage <= 20.0
             
-    return not fraud_detected, total_co2
+    return is_valid, total_co2
 
 if __name__ == "__main__":
     print("\n🟢 Institutional P2P Validator Console Connected.")

@@ -12,7 +12,7 @@ CORS(app)
 
 w3 = Web3(Web3.HTTPProvider('http://127.0.0.1:8545'))
 # MAKE SURE THIS MATCHES YOUR CURRENT DEPLOYMENT:
-STAKING_CONTRACT_ADDRESS = w3.to_checksum_address("0xa513E6E4b8f2a923D98304ec87F64353C4D5C853")
+STAKING_CONTRACT_ADDRESS = w3.to_checksum_address("0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512")
 
 MINIMAL_ABI = [
     {"inputs":[],"name":"registerEnterprise","outputs":[],"stateMutability":"payable","type":"function"},

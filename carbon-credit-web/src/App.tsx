@@ -11,7 +11,6 @@ interface Block {
 
 const App = () => {
   const [identity, setIdentity] = useState<{ address: string; private_key: string } | null>(null);
-  const [ledgerState, setLedgerState] = useState({ stake: "0.0", reputation: 100, credits: 0, isActive: false });
   const [blockHistory, setBlockHistory] = useState<Block[]>([]);
   const [networkLogs, setNetworkLogs] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -21,14 +20,6 @@ const App = () => {
     const blockInterval = setInterval(() => queryNetworkBlocks(), 2000);
     return () => clearInterval(blockInterval);
   }, []);
-
-  useEffect(() => {
-    if (identity) {
-      queryLedgerState();
-      const stateInterval = setInterval(() => queryLedgerState(), 2000);
-      return () => clearInterval(stateInterval);
-    }
-  }, [identity]);
 
   const generateAndOnboardIdentity = async () => {
     setLoading(true);
@@ -68,14 +59,6 @@ const App = () => {
     document.body.appendChild(element);
     element.click();
     setNetworkLogs(prev => [...prev, `💾 Key configuration file downloaded locally.`]);
-  };
-
-  const queryLedgerState = async () => {
-    if (!identity) return;
-    try {
-      const res = await axios.get(`http://localhost:5000/state/${identity.address}`);
-      setLedgerState(res.data);
-    } catch (e) {}
   };
 
   const queryNetworkBlocks = async () => {
@@ -119,7 +102,7 @@ const App = () => {
     brandTitle: { margin: 0, fontSize: '20px', fontWeight: 900, color: '#FFFFFF', letterSpacing: '3px' },
     brandSub: { margin: '6px 0 0 0', fontSize: '11px', color: '#475569', letterSpacing: '1px', textTransform: 'uppercase' as const },
     
-    gridTwoColumn: { display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '32px' },
+    gridTwoColumn: { display: 'grid', gridTemplateColumns: '1fr', gap: '32px' },
     cardPanel: { backgroundColor: '#0D111C', border: '1px solid #1E293B', borderRadius: '12px', padding: '28px', display: 'flex', flexDirection: 'column' as const, gap: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.4)' },
     cardHeader: { margin: 0, fontSize: '11px', fontWeight: 700, color: '#00E699', letterSpacing: '1.5px', textTransform: 'uppercase' as const, borderBottom: '1px solid #1E293B', paddingBottom: '12px' },
     
@@ -174,26 +157,6 @@ const App = () => {
 
         {identity && (
           <div style={ui.gridTwoColumn}>
-            
-            {/* ESCROW ACCOUNT STATS */}
-            <div style={ui.cardPanel}>
-              <h3 style={ui.cardHeader}>// ON-CHAIN CONTRACT STATES</h3>
-              <div style={ui.metricContainer}>
-                <span style={ui.metricLabel}>Security Collateral Staked</span>
-                <div style={ui.metricValue}>{ledgerState.stake} <span style={{ color: '#475569', fontSize: '14px' }}>ETH</span></div>
-              </div>
-              <div style={ui.metricContainer}>
-                <span style={ui.metricLabel}>Elected Node Reputation Rank</span>
-                <div style={{ ...ui.metricValue, color: ledgerState.reputation < 100 ? '#F87171' : '#38BDF8' }}>
-                  {ledgerState.reputation} <span style={{ color: '#475569', fontSize: '14px' }}>/ 100</span>
-                </div>
-              </div>
-              <div style={ui.metricContainer}>
-                <span style={ui.metricLabel}>Verified Carbon Asset Mintings</span>
-                <div style={{ ...ui.metricValue, color: '#00E699' }}>{ledgerState.credits} <span style={{ color: '#475569', fontSize: '14px' }}>tCO2</span></div>
-              </div>
-            </div>
-
             {/* RAW DATA TRANSMITTER DROPZONE */}
             <div style={ui.cardPanel}>
               <h3 style={ui.cardHeader}>// METRIC PROCESSING SYSTEM</h3>
