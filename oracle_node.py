@@ -7,9 +7,9 @@ import time
 w3 = Web3(Web3.HTTPProvider('http://127.0.0.1:8545'))
 
 if not w3.is_connected():
-    raise Exception("❌ Failed to connect to Hardhat node. Is 'npx hardhat node' running?")
+    raise Exception(" Failed to connect to Hardhat node. Is 'npx hardhat node' running?")
 
-print("🟢 Python Oracle Node Booted. Connected to Hardhat.")
+print(" Python Oracle Node Booted. Connected to Hardhat.")
 
 # The Checksummed Contract Address
 STAKING_CONTRACT_ADDRESS = w3.to_checksum_address("0xe7f1725e7734ce288f8367e1bb143e90bb3f0512")
@@ -46,7 +46,7 @@ enterprise_address = w3.eth.accounts[1]
 validator_address = w3.eth.accounts[2]
 
 # --- 2. LOAD MACHINE LEARNING ARTIFACTS ---
-print("⚙️ Loading ML Artifacts (ONNX + Scalers)...")
+print(" Loading ML Artifacts (ONNX + Scalers)...")
 scaler_mean = np.load("scaler_mean.npy")
 scaler_scale = np.load("scaler_scale.npy")
 ort_session = ort.InferenceSession("carbon_validator.onnx")
@@ -54,7 +54,7 @@ input_name = ort_session.get_inputs()[0].name
 
 # --- 3. THE MACHINE LEARNING BRIDGE ---
 def run_ml_inference(payload):
-    print(f"\n🧠 ML Ingesting Data: Power={payload['power_kwh']}kWh, Vib={payload['vibration_hz']}Hz")
+    print(f"\n ML Ingesting Data: Power={payload['power_kwh']}kWh, Vib={payload['vibration_hz']}Hz")
     
     # 1. Format the 6 features exactly as the model expects
     raw_features = np.array([[
@@ -78,10 +78,10 @@ def run_ml_inference(payload):
     probability = float(np.squeeze(outputs[0])) 
     
     if probability >= 0.5:
-        print(f"🚨 ML Output: FRAUD DETECTED (Anomaly Confidence: {probability*100:.2f}%)")
+        print(f" ML Output: FRAUD DETECTED (Anomaly Confidence: {probability*100:.2f}%)")
         return False, 0
     else:
-        print(f"✅ ML Output: NORMAL OPERATION (Anomaly Confidence: {probability*100:.2f}%)")
+        print(f" ML Output: NORMAL OPERATION (Anomaly Confidence: {probability*100:.2f}%)")
         return True, 500 # Simulating 500 CO2 for standard emission
 
 # --- 4. THE BLOCKCHAIN EXECUTION ---
@@ -89,7 +89,7 @@ def submit_to_blockchain(is_valid, expected_co2):
     proof = b'\x01' if is_valid else b'\x00'
     pub_inputs = [] 
     
-    print(f"⛓️  Building Transaction... Proof: {proof.hex()}")
+    print(f"  Building Transaction... Proof: {proof.hex()}")
     
     tx = staking_contract.functions.submitValidation(
         enterprise_address,
@@ -112,10 +112,10 @@ def submit_to_blockchain(is_valid, expected_co2):
     })
     
     receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
-    print(f"✅ Transaction Mined in Block {receipt.blockNumber} | Hash: {tx_hash.hex()}")
+    print(f" Transaction Mined in Block {receipt.blockNumber} | Hash: {tx_hash.hex()}")
     
     state = staking_contract.functions.enterprises(enterprise_address).call()
-    print(f"📊 Enterprise Updated State -> Stake: {w3.from_wei(state[0], 'ether')} ETH, Score: {state[1]}\n")
+    print(f" Enterprise Updated State -> Stake: {w3.from_wei(state[0], 'ether')} ETH, Score: {state[1]}\n")
 
 # --- 5. EXECUTION LOOP ---
 if __name__ == "__main__":

@@ -121,7 +121,7 @@ async def generate_zk_pipeline():
         print("CRITICAL: The EZKL engine cannot find a required file. Please ensure 'circuit.json' and 'kzg.srs' are in the root folder.")
         return
         
-    print("  ✅ Setup Successful!")
+    print("   Setup Successful!")
 
 if __name__ == "__main__":
     # Temporarily suppress the deprecation warnings for clean logs

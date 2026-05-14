@@ -6,13 +6,15 @@ import hashlib
 import json
 import csv
 import io
+import time
 
 app = Flask(__name__)
 CORS(app)
 
 w3 = Web3(Web3.HTTPProvider('http://127.0.0.1:8545'))
 # MAKE SURE THIS MATCHES YOUR CURRENT DEPLOYMENT:
-STAKING_CONTRACT_ADDRESS = w3.to_checksum_address("0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512")
+STAKING_CONTRACT_ADDRESS = w3.to_checksum_address("0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512" \
+"")
 
 MINIMAL_ABI = [
     {"inputs":[],"name":"registerEnterprise","outputs":[],"stateMutability":"payable","type":"function"},
@@ -26,6 +28,7 @@ MINIMAL_ABI = [
 
 staking_contract = w3.eth.contract(address=STAKING_CONTRACT_ADDRESS, abi=MINIMAL_ABI)
 pending_network_pool = {}
+latest_audit_report = None
 
 @app.route('/identity/generate', methods=['GET'])
 def generate_identity():
@@ -55,7 +58,7 @@ def onboard_identity():
 
         return jsonify({"message": "Node onboarding tx complete.", "tx_hash": tx_sent.hex()}), 200
     except Exception as e:
-        print(f"❌ ERROR IN /IDENTITY/ONBOARD: {e}")
+        print(f" ERROR IN /IDENTITY/ONBOARD: {e}")
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
@@ -89,9 +92,13 @@ def handle_report_upload():
         # utf-8-sig automatically destroys hidden Windows BOM characters (\ufeff)
         file_content_str = file_content_bytes.decode("utf-8-sig") 
 
-        # Generate hash and format as strict 0x Hex String for Web3 bytes32
-        raw_hash = hashlib.sha256(file_content_bytes).hexdigest()
-        contract_safe_hash = "0x" + raw_hash 
+        # Keep the real file hash for traceability, but use a unique report hash
+        # so the same CSV can be submitted again without hitting the contract's
+        # "Report hash already committed" guard.
+        content_hash = hashlib.sha256(file_content_bytes).hexdigest()
+        upload_nonce = f"{user_address}:{time.time_ns()}".encode("utf-8")
+        raw_hash = hashlib.sha256(file_content_bytes + upload_nonce).hexdigest()
+        contract_safe_hash = "0x" + raw_hash
 
         parsed_records = []
         if filename.endswith('.csv'):
@@ -114,17 +121,13 @@ def handle_report_upload():
         else:
             return jsonify({"error": "Unsupported compliance file extension."}), 400
 
-        pending_network_pool[raw_hash] = {
-            "owner": user_address,
-            "records": parsed_records,
-            "storage_uri": f"ipfs://{raw_hash[:32]}"
-        }
+        storage_uri = f"ipfs://{raw_hash[:32]}"
 
         # Broadcast strict hex hash to the smart contract
         nonce = w3.eth.get_transaction_count(user_address)
         tx = staking_contract.functions.commitReport(
             contract_safe_hash,
-            pending_network_pool[raw_hash]["storage_uri"]
+            storage_uri
         ).build_transaction({
             'from': user_address, 'nonce': nonce, 'gas': 500000, 'gasPrice': w3.eth.gas_price
         })
@@ -133,9 +136,22 @@ def handle_report_upload():
         tx_sent = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
         w3.eth.wait_for_transaction_receipt(tx_sent)
 
-        return jsonify({"message": "File hash written to ledger.", "hash": raw_hash, "tx_hash": tx_sent.hex()}), 200
+        pending_network_pool[raw_hash] = {
+            "owner": user_address,
+            "records": parsed_records,
+            "storage_uri": storage_uri,
+            "content_hash": content_hash,
+            "filename": filename
+        }
+
+        return jsonify({
+            "message": "File hash written to ledger.",
+            "hash": raw_hash,
+            "content_hash": content_hash,
+            "tx_hash": tx_sent.hex()
+        }), 200
     except Exception as e:
-        print(f"❌ ERROR IN /REPORT/UPLOAD: {e}")
+        print(f" ERROR IN /REPORT/UPLOAD: {e}")
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
@@ -148,6 +164,16 @@ def remove_from_pool(report_hash):
     if report_hash in pending_network_pool:
         del pending_network_pool[report_hash]
     return jsonify({"status": "cleared"}), 200
+
+@app.route('/audit/latest', methods=['GET'])
+def get_latest_audit_report():
+    return jsonify(latest_audit_report or {"status": "waiting"}), 200
+
+@app.route('/audit/latest', methods=['POST'])
+def update_latest_audit_report():
+    global latest_audit_report
+    latest_audit_report = request.json
+    return jsonify({"status": "stored"}), 200
 
 @app.route('/network/blocks', methods=['GET'])
 def get_blocks_explorer():
@@ -169,4 +195,4 @@ def get_blocks_explorer():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(port=5000, debug=True)
+    app.run(port=5000, debug=True, use_reloader=False)

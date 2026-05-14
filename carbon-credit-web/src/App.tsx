@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import CarbonAuditDashboard, { type CarbonAuditReport } from './CarbonAuditDashboard';
 
 interface Block {
   number: number;
@@ -13,12 +14,18 @@ const App = () => {
   const [identity, setIdentity] = useState<{ address: string; private_key: string } | null>(null);
   const [blockHistory, setBlockHistory] = useState<Block[]>([]);
   const [networkLogs, setNetworkLogs] = useState<string[]>([]);
+  const [auditReport, setAuditReport] = useState<CarbonAuditReport | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     queryNetworkBlocks();
+    queryLatestAuditReport();
     const blockInterval = setInterval(() => queryNetworkBlocks(), 2000);
-    return () => clearInterval(blockInterval);
+    const auditInterval = setInterval(() => queryLatestAuditReport(), 2000);
+    return () => {
+      clearInterval(blockInterval);
+      clearInterval(auditInterval);
+    };
   }, []);
 
   const generateAndOnboardIdentity = async () => {
@@ -68,9 +75,21 @@ const App = () => {
     } catch (e) {}
   };
 
+  const queryLatestAuditReport = async () => {
+    try {
+      const res = await axios.get('http://localhost:5000/audit/latest');
+      if (res.data?.results) {
+        setAuditReport(res.data);
+      } else if (res.data?.status === 'rejected' || res.data?.status === 'waiting') {
+        setAuditReport(null);
+      }
+    } catch (e) {}
+  };
+
   const handleFileUploadStream = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!identity || !e.target.files || e.target.files.length === 0) return;
     setLoading(true);
+    setAuditReport(null);
     const selectedFile = e.target.files[0];
     
     setNetworkLogs(prev => [...prev, `[INGESTION] Packing raw file data stream: ${selectedFile.name}`]);
@@ -172,6 +191,8 @@ const App = () => {
 
           </div>
         )}
+
+        <CarbonAuditDashboard report={auditReport} />
 
         {/* SECURE WRAPPING CHRONOLOGICAL BLOCK HISTORY EXPLORER */}
         <div style={ui.cardPanel}>

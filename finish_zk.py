@@ -25,13 +25,13 @@ async def finalize():
 
     print(f"Working Directory: {cwd}")
     print("Checking critical files...")
-    if not os.path.exists(circuit): print("❌ circuit.json MISSING!")
-    if not os.path.exists(srs): print("❌ kzg.srs MISSING!")
+    if not os.path.exists(circuit): print(" circuit.json MISSING!")
+    if not os.path.exists(srs): print(" kzg.srs MISSING!")
 
     print("\n[7/8] 🔐 Running Setup with Absolute Paths...")
     # Using the exact compiled circuit path
     await safe_ezkl(ezkl.setup, circuit, vk, pk, srs_path=srs)
-    print("✅ Setup Successful!")
+    print(" Setup Successful!")
 
     print("\n[8/8] 📜 Generating Smart Contract...")
     await safe_ezkl(ezkl.create_evm_verifier, vk, srs_path=srs, settings_path=settings, sol_code_path=sol, abi_path=abi)
